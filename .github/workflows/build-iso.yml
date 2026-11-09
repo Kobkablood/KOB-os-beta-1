@@ -1,1 +1,77 @@
+name: Build KOBos ISO
 
+# Запуск вручную: вкладка Actions -> "Build KOBos ISO" -> Run workflow
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # нужно, чтобы выложить ISO в Releases
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+                      /usr/local/lib/node_modules /usr/share/swift
+          sudo docker image prune --all --force || true
+          sudo apt-get clean
+          df -h /
+
+      - name: Build ISO (kobos-build.sh)
+        run: |
+          test -f kobos-build.sh || { echo "kobos-build.sh не найден в корне репозитория"; exit 1; }
+          chmod +x kobos-build.sh
+          sudo ./kobos-build.sh
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: kobos-build/build.log
+          if-no-files-found: ignore
+
+      - name: Prepare ISO for release
+        run: |
+          ISO=$(sudo find kobos-build -maxdepth 1 -name '*.iso' | head -n1)
+          test -n "$ISO" || { echo "ISO не найден"; exit 1; }
+          sudo mv "$ISO" kobos-beta1-amd64.hybrid.iso
+          sudo chown "$USER" kobos-beta1-amd64.hybrid.iso
+          ls -lh kobos-beta1-amd64.hybrid.iso
+          sha256sum kobos-beta1-amd64.hybrid.iso > SHA256SUMS
+
+          mkdir release
+          size=$(stat -c %s kobos-beta1-amd64.hybrid.iso)
+          if [ "$size" -gt 2000000000 ]; then
+            # В Releases файл не может быть больше 2 ГБ, поэтому режем на части
+            split -b 1900M -d kobos-beta1-amd64.hybrid.iso release/kobos-beta1-amd64.hybrid.iso.part-
+            echo "ISO нарезан на части"
+          else
+            cp kobos-beta1-amd64.hybrid.iso release/
+          fi
+          cp SHA256SUMS release/
+          ls -lh release
+
+      - name: Publish to Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "iso-${{ github.run_number }}" release/* \
+            --title "KOBos Beta 1 (build ${{ github.run_number }})" \
+            --notes "Если файл разделён на части (.part-00, .part-01, ...), склей: cat kobos-beta1-amd64.hybrid.iso.part-* > kobos-beta1-amd64.hybrid.iso"
+
+      - name: Upload ISO as artifact (запасной вариант)
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: kobos-iso
+          path: kobos-beta1-amd64.hybrid.iso
+          compression-level: 0
+          retention-days: 7
