@@ -1,0 +1,50 @@
+.github/workflows/kobos-test.yml
+
+name: KOBos - Cloud Build Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test Linux build environment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: System information
+        run: |
+          echo "=== SYSTEM ==="
+          uname -a
+          echo "=== ARCHITECTURE ==="
+          dpkg --print-architecture
+          echo "=== CPU ==="
+          nproc
+          echo "=== RAM ==="
+          free -h
+          echo "=== DISK ==="
+          df -h /
+
+      - name: Check root permissions
+        run: |
+          sudo id
+          sudo capsh --print || true
+
+      - name: Test mount proc
+        run: |
+          set -eux
+          sudo mkdir -p /tmp/kobos-proc-test
+          sudo mount -t proc proc /tmp/kobos-proc-test
+          mount | grep kobos-proc-test
+          sudo umount /tmp/kobos-proc-test
+
+      - name: Test chroot
+        run: |
+          sudo chroot / /bin/true
+          echo "CHROOT OK"
+
+      - name: Finish
+        run: echo "KOBos environment test completed"
