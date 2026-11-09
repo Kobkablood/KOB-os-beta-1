@@ -628,7 +628,27 @@ $OS_NAME $OS_VERSION
 EOF
 
 echo "==> Сборка образа (это долго: 30-90 минут, нужен интернет и ~20 ГБ места)"
-lb build 2>&1 | tee build.log
+if lb build 2>&1 | tee build.log; then
+  echo "==> Сборка завершилась успешно"
+else
+  BUILD_STATUS=$?
+
+  echo "======================================"
+  echo "ОШИБКА СБОРКИ: содержимое APT"
+  echo "======================================"
+
+  if [ -f chroot/etc/apt/sources.list ]; then
+    echo "=== chroot/etc/apt/sources.list ==="
+    nl -ba chroot/etc/apt/sources.list
+  else
+    echo "Файл chroot/etc/apt/sources.list не найден"
+  fi
+
+  echo "=== Последние строки build.log ==="
+  tail -n 80 build.log
+
+  exit "$BUILD_STATUS"
+fi
 
 echo
 echo "Готово:"
