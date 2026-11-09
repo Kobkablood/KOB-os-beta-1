@@ -1,3 +1,4 @@
+
 name: KOBos Beta 1 - ISO Build
 
 "on":
@@ -36,7 +37,7 @@ jobs:
 
       - name: Show ISO
         run: |
-          ls -lh kobos-build/*.iso
+          find kobos-build -maxdepth 1 -type f -name '*.iso' -ls
           df -h /
 
       - name: Upload ISO
