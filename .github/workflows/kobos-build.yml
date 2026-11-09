@@ -1,6 +1,6 @@
 name: KOBos Beta 1 - ISO Build
 
-on:
+"on":
   workflow_dispatch:
 
 permissions:
