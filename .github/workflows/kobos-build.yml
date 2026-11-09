@@ -1,8 +1,4 @@
-  --image-name "$IMAGE_NAME" \
-  
-    --binary-images iso-hybrid \
-
-    
+ 
 name: KOBos Beta 1 - ISO Build
 
 on:
@@ -37,8 +33,7 @@ jobs:
           chmod +x kobos-build.sh
 
       - name: Build KOBos ISO
-        run: |
-          sudo ./kobos-build.sh
+        run: sudo ./kobos-build.sh
 
       - name: Show ISO
         run: |
