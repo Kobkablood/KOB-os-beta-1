@@ -24,6 +24,25 @@ jobs:
           sudo apt-get clean
           df -h /
 
+      - name: Patch kobos-build.sh (repo lines for Debian 13)
+        run: |
+          # убираем опции с адресом "none" и старые security-опции
+          sed -i \
+            -e '/--parent-mirror-chroot-volatile none/d' \
+            -e '/--parent-mirror-binary-volatile none/d' \
+            -e '/--parent-mirror-chroot-security/d' \
+            -e '/--parent-mirror-binary-security/d' \
+            -e '/--mirror-chroot-security/d' \
+            -e '/--mirror-binary-security/d' \
+            kobos-build.sh
+          # отключаем встроенный security и добавляем правильный для trixie
+          sed -i 's|^  --architectures amd64 \\$|  --architectures amd64 \\\n  --security false \\|' kobos-build.sh
+          sed -i '/Репозиторий Brave/i echo "deb http://deb.debian.org/debian-security trixie-security main contrib non-free non-free-firmware" > config/archives/security.list.chroot' kobos-build.sh
+          echo "---- проверка lb_config ----"
+          sed -n '/^lb config/,/^mkdir -p config/p' kobos-build.sh
+          grep -n "security.list.chroot" kobos-build.sh
+          bash -n kobos-build.sh
+
       - name: Build ISO (kobos-build.sh)
         run: |
           test -f kobos-build.sh || { echo "kobos-build.sh не найден в корне репозитория"; exit 1; }
