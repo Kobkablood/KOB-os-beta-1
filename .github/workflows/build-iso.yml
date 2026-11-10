@@ -24,9 +24,10 @@ jobs:
           sudo apt-get clean
           df -h /
 
-      - name: Patch kobos-build.sh (repo lines for Debian 13)
+      - name: Patch kobos-build.sh for modern live-build (Debian 13)
         run: |
-          # убираем опции с адресом "none" и старые security-опции
+          test -f kobos-build.sh || { echo "kobos-build.sh не найден в корне репозитория"; exit 1; }
+          # убираем устаревшие опции (адрес "none", старые security-зеркала)
           sed -i \
             -e '/--parent-mirror-chroot-volatile none/d' \
             -e '/--parent-mirror-binary-volatile none/d' \
@@ -34,20 +35,20 @@ jobs:
             -e '/--parent-mirror-binary-security/d' \
             -e '/--mirror-chroot-security/d' \
             -e '/--mirror-binary-security/d' \
+            -e 's|--debian-installer false|--debian-installer none|' \
             kobos-build.sh
-          # отключаем встроенный security и добавляем правильный для trixie
-          sed -i 's|^  --architectures amd64 \\$|  --architectures amd64 \\\n  --security false \\|' kobos-build.sh
-          sed -i '/Репозиторий Brave/i echo "deb http://deb.debian.org/debian-security trixie-security main contrib non-free non-free-firmware" > config/archives/security.list.chroot' kobos-build.sh
+          chmod +x kobos-build.sh
           echo "---- проверка lb_config ----"
           sed -n '/^lb config/,/^mkdir -p config/p' kobos-build.sh
-          grep -n "security.list.chroot" kobos-build.sh
           bash -n kobos-build.sh
 
-      - name: Build ISO (kobos-build.sh)
+      - name: Build ISO inside Debian 13 (modern live-build)
         run: |
-          test -f kobos-build.sh || { echo "kobos-build.sh не найден в корне репозитория"; exit 1; }
-          chmod +x kobos-build.sh
-          sudo ./kobos-build.sh
+          docker run --rm --privileged \
+            -v "$PWD":/work -w /work \
+            -e DEBIAN_FRONTEND=noninteractive \
+            debian:trixie \
+            bash -c "apt-get update && apt-get install -y ca-certificates && ./kobos-build.sh"
 
       - name: Upload build log
         if: always()
